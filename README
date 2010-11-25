@@ -2,6 +2,8 @@
 
 Parse data from a (possibly large) XML file and push it into a mongo database.
 
+This project is in development right now. It is not usable.
+
 Copyright (C) 2010 FIXME
 
 Distributed under the Eclipse Public License, the same as Clojure.
