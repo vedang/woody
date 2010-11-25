@@ -1,0 +1,7 @@
+# woody
+
+Parse data from a (possibly large) XML file and push it into a mongo database.
+
+Copyright (C) 2010 FIXME
+
+Distributed under the Eclipse Public License, the same as Clojure.
