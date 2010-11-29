@@ -1,31 +1,34 @@
 (ns woody.core
+  (:require [somnium.congomongo :as c])
   (:use [clojure.walk :only [keywordize-keys]])
   (:import [com.ctc.wstx.stax WstxInputFactory]
            [javax.xml.stream XMLStreamConstants]))
 
 (def *default-file* "/home/vedang/Work/woody/hn.xml")
 
+(def *default-db* "hackernews")
+
 (def *wstx-factory* (WstxInputFactory.))
 (.configureForLowMemUsage *wstx-factory*)
 
+(c/mongo! :db *default-db*)
+
+(declare extract-element)
+
 (defn get-row
   "Extract all relevant data from one row entry in the file"
-  [x]
+  [x state]
   (loop [m {}
-         e 1
-         d 0]
+         e state]
     (cond
      (= e XMLStreamConstants/START_ELEMENT) (recur (merge m (extract-element x))
-                                                   (.next x)
-                                                   (inc d))
-     (and (= e XMLStreamConstants/END_ELEMENT) (not (= d 0))) (recur m
-                                                                     (.next x)
-                                                                     (dec d))
+                                                   (.next x))
+     (and (= e XMLStreamConstants/END_ELEMENT) (not (= (.getLocalName x) "row"))) (recur m
+                                                                                         (.next x))
+     (and (= e XMLStreamConstants/END_ELEMENT) (= (.getLocalName x) "row")) (keywordize-keys m)
      (= e XMLStreamConstants/END_DOCUMENT) (keywordize-keys m)
-     (= d 0) (keywordize-keys m)
      :else (recur m
-                  (.next x)
-                  d))))
+                  (.next x)))))
 
 (defn extract-element
   "takes a XMLStreamReader pointing at a START_ELEMENT, and returns
@@ -44,8 +47,7 @@ it as a map with it's text value. Use only on inner elements of a row"
                                   (java.io.File. file))]
     (loop [m {}
            e (.next x)
-           count 0
-           depth 0]
+           count 0]
       (cond
        (= e XMLStreamConstants/END_DOCUMENT) (do
                                                (println "Done")
@@ -53,23 +55,19 @@ it as a map with it's text value. Use only on inner elements of a row"
        (= e XMLStreamConstants/START_ELEMENT) (cond
                                                ;; this is a row and we should extract it
                                                ;; and push it to mongo
-                                               (= depth 1) (recur (get-row x)
-                                                                  XMLStreamConstants/END_ELEMENT
-                                                                  (inc count)
-                                                                  (inc depth))
+                                               (= (.getLocalName x) "row") (recur (c/insert! :row (get-row x (.next x)))
+                                                                                  XMLStreamConstants/END_ELEMENT
+                                                                                  (inc count))
                                                ;; We should just ignore this
                                                :else (recur m
                                                             (.next x)
-                                                            count
-                                                            (inc depth)))
+                                                            count))
        (= e XMLStreamConstants/END_ELEMENT) (recur m
                                                    (.next x)
-                                                   count
-                                                   (dec depth))
+                                                   count)
        :else (recur m
                     (.next x)
-                    count
-                    depth)))))
+                    count)))))
 
 ;;; HN structure
 ;; <HackerNews>
