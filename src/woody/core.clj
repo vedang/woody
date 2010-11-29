@@ -40,6 +40,15 @@ it as a map with it's text value. Use only on inner elements of a row"
       (hash-map key (.getText x))
       {key " "})))
 
+(defn mongo-push-rows-or-wait
+  "push data into mongo row collection if we have enough data"
+  [m count]
+  (cond
+   (= count 20) (do
+                  (c/insert! :row m)
+                  {})
+   :else m))
+
 (defn main
   "Things start here"
   [file]
